@@ -962,7 +962,7 @@ CMove AI::find_best_or_worst_move(bool bestMove)
 
     CTime timeStart;
     m_timeEnd = timeStart;
-    m_timeEnd += 200; // 200 miliseconds
+    m_timeEnd += 20000; // 20 seconds
     CMoveList moves;
     m_board.find_legal_moves(moves);
 
