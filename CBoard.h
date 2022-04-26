@@ -56,7 +56,8 @@ class CBoard
 {
     public:
         CBoard() : m_board(), m_state(), m_side_to_move(), m_castleRights(),
-            m_enPassantSquare(), m_material(), m_halfMoves(), m_fullMoves()
+            m_enPassantSquare(), m_material(), m_halfMoves(), m_fullMoves(),
+            last_capture_or_pawn_move()
             { newGame(); }
 
         // Copy constructor
@@ -76,6 +77,7 @@ class CBoard
         bool isKingInCheck() const;
         bool isOtherKingInCheck() const;
         bool whiteToMove() const {return m_side_to_move > 0;}
+        bool fiftyMoveDraw() const { return last_capture_or_pawn_move >= 50; }
 
         friend std::ostream& operator <<(std::ostream &os, const CBoard &rhs);
         friend class CHashEntry;
@@ -97,6 +99,8 @@ class CBoard
         int m_material;
         int m_halfMoves;
         int m_fullMoves;
+
+        int last_capture_or_pawn_move;
 
 }; // end of class CBoard
 

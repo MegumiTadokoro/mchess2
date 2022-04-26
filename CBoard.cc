@@ -1145,6 +1145,11 @@ void CBoard::make_move(const CMove &move)
 {
     m_state.push_back((m_enPassantSquare << 8) | m_castleRights);
     m_enPassantSquare = 0;
+
+    // 50-move rule
+    if (move.GetCaptured() == EM || move.GetPiece() != BP || move.GetPiece() != WP) last_capture_or_pawn_move++;
+    else last_capture_or_pawn_move = 0;
+
     switch (move.GetCaptured())
     {
         case WP : case BP : m_material += 1; break;
