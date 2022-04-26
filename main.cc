@@ -1,8 +1,9 @@
 #include <iostream>
 #include <fstream>
-#include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <chrono>
+#include <random>
 
 #include "CBoard.h"
 #include "CPerft.h"
@@ -23,10 +24,21 @@ std::ostream *gpTrace = 0;
 int main(int argc, char **argv)
 {
     bool uciMode = false;
-    srand(time(0)); // Seed the random number generator
-
+    //srand(time(0)); // Seed the random number generator
+    
     CBoard board;
-    AI ai(board);
+    AI ai[2] = {AI(board), AI(board)};
+    double strength;
+    std::cout << "Input strength: ";
+    std::cin >> strength;
+    if (strength < 0 || strength > 1)
+    {
+        std::cout << "Invalid value encountered. Strength must be between 0 and 1.\n";
+        return 0;
+    }
+    unsigned seed = 2022;//std::chrono::system_clock::now().time_since_epoch().count();
+    std::default_random_engine generator (seed);
+    std::bernoulli_distribution distribution(strength);
 
     int c;
 
@@ -241,7 +253,7 @@ int main(int argc, char **argv)
                     ++p;
             } // end of while
 
-            CMove best_move = ai.find_best_move(wtime_ms, btime_ms, movesToGo);
+            CMove best_move = ai[0].find_best_move(wtime_ms, btime_ms, movesToGo);
 
             if (!best_move.Valid())
             {
@@ -278,7 +290,33 @@ int main(int argc, char **argv)
                 board.undo_move(move);
             }
             std::cout << std::endl;
-        }
+        } // end of "show"
+
+        if (str == "auto")
+        {
+            while(true)
+            {
+                CMove best_move = ai[board.whiteToMove()].find_best_or_worst_move(distribution(generator));
+
+                if (!best_move.Valid())
+                {
+                    // Oops. No legal move was found
+                    bool check = board.isOtherKingInCheck();
+                    if (check)
+                    {
+                        std::cout << (board.whiteToMove() ? "Black won" : "White won") << std::endl;
+                    }
+                    else
+                    {
+                        std::cout << "Draw" << std::endl;
+                    }
+                    break;
+                }
+
+                std::cout << "bestmove " << best_move << std::endl;
+                board.make_move(best_move);
+            }
+        } // end of "auto"
     } // end of while (true)
 
     return 0;

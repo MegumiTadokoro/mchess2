@@ -35,7 +35,7 @@ OPTIONS  += -DENABLE_TRACE
 ifeq ($(TARGET),linux)
   CC = g++
 else
-  CC = i686-w64-mingw32-g++
+  CC = g++
   OPTIONS  += -static-libgcc -static-libstdc++
   program := $(program).exe
 endif
@@ -59,7 +59,7 @@ clean:
 	-rm -f $(objects)
 	-rm -f $(depends)
 	-rm -f gmon.out
-	-rm -f $(program)
+#	-rm -f $(program)
 
 ctags:
 	ctags $(sources) *.h
