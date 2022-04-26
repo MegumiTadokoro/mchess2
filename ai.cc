@@ -35,10 +35,10 @@ int AI::search(int alpha, int beta, int level, CMoveList& pv)
     if (m_board.isOtherKingInCheck()) return 9000 + level;
 
     // First we check if we are at leaf of tree.
-    // If so, do a quiescence search.
+    // If so, return value from NNUE.
     if (level == 0)
     {
-        int val = quiescence(alpha, beta, pv);
+        int val = m_board.getValue();
 
         // If a capture sequence was found, store the first move in the hash table.
         // This is an optimization that improves move ordering.
@@ -244,7 +244,6 @@ int AI::search(int alpha, int beta, int level, CMoveList& pv)
     hashEntry.m_bestMove               = pv[0];
 
     m_hashTable.insert(hashEntry);
-    TRACE("Added hashEntry : " << m_moveList << " " << hashEntry << std::endl);
 
     return best_val;
 } // end of int search
@@ -258,10 +257,10 @@ int AI::search_reverse(int alpha, int beta, int level, CMoveList& pv)
     if (m_board.isOtherKingInCheck()) return -9000 - level;
 
     // First we check if we are at leaf of tree.
-    // If so, do a quiescence search.
+    // If so, return value from NNUE.
     if (level == 0)
     {
-        int val = quiescence(alpha, beta, pv);
+        int val = m_board.getValue();
 
         // If a capture sequence was found, store the first move in the hash table.
         // This is an optimization that improves move ordering.
@@ -304,8 +303,6 @@ int AI::search_reverse(int alpha, int beta, int level, CMoveList& pv)
     CHashEntry hashEntry;
     if (m_hashTable.find(m_hashEntry.m_hashValue, hashEntry))
     {
-        TRACE("Found hashEntry : " << hashEntry);
-
         // Now we examine the search value stored.
         // This value is only to be trusted, if the
         // search level is sufficiently high.
@@ -340,8 +337,6 @@ int AI::search_reverse(int alpha, int beta, int level, CMoveList& pv)
         } // end of if level
     } // end of m_hashTable.find
 
-    TRACE(std::endl);
-
     // Prepare to search through all legal moves.
     CMoveList moves;
     m_board.find_legal_moves(moves);
@@ -356,8 +351,6 @@ int AI::search_reverse(int alpha, int beta, int level, CMoveList& pv)
         {
             if (moves[i] == hashEntry.m_bestMove)
             {
-                TRACE("Hash: Move reordering! Play " << hashEntry.m_bestMove
-                        << " first" << std::endl);
                 moves[i] = moves[0];
                 moves[0] = hashEntry.m_bestMove;
                 break;
@@ -374,9 +367,6 @@ int AI::search_reverse(int alpha, int beta, int level, CMoveList& pv)
                 CMove tmpMove = moves[i];
                 moves[i] = moves[j];
                 moves[j] = tmpMove;
-
-                TRACE("Capture: Move reordering! Play " << tmpMove
-                        << " first" << std::endl);
                 j++;
             }
         }
@@ -409,18 +399,8 @@ int AI::search_reverse(int alpha, int beta, int level, CMoveList& pv)
 
 #ifdef DEBUG_HASH
         uint32_t newHash = m_board.calcHash();
-        if (oldHash != newHash)
-        {
-            TRACE("Hash failure" << std::endl);
-            TRACE(m_board);
-            exit(-1);
-        }
-        if (hashCopy != m_hashEntry)
-        {
-            TRACE("New hash failure" << std::endl);
-            TRACE(m_board);
-            exit(-1);
-        }
+        if (oldHash != newHash) exit(-1);
+        if (hashCopy != m_hashEntry) exit(-1);
 #endif
 
         if (val < worst_val)
@@ -451,11 +431,7 @@ int AI::search_reverse(int alpha, int beta, int level, CMoveList& pv)
         if (m_pvSearch)
         {
             CTime now;
-            if (m_timeEnd < now)
-            {
-                TRACE("Out of time. Stopping search." << std::endl);
-                return alpha;
-            }
+            if (m_timeEnd < now) return alpha;
         }
 
     } // end of for
@@ -489,281 +465,16 @@ int AI::search_reverse(int alpha, int beta, int level, CMoveList& pv)
     hashEntry.m_bestMove               = pv[0];
 
     m_hashTable.insert(hashEntry);
-    TRACE("Added hashEntry : " << m_moveList << " " << hashEntry << std::endl);
 
     return worst_val;
 } // end of int search
 
 /***************************************************************
- * This performs a search of capture moves only.
- * The static evaluation is used as a lower bound on the score.
- * This assumes that there always exists a move that will
- * improve the score. This is safe, unless we are in zug-zwang.
- ***************************************************************/
-int AI::quiescence(int alpha, int beta, CMoveList& pv)
-{
-    pv.clear();
-
-    // Check for illegal position (side NOT to move is in check).
-    // In other words, the side to move can capture the opponents position.
-    // This is an illegal position but corresponds to an immediate win.
-    // Return a large positive value.
-    if (m_board.isOtherKingInCheck())
-    {
-        TRACE("Q : 9000" << std::endl);
-        return 9000;
-    }
-
-    m_nodes++;
-
-    int best_val = m_board.get_value();
-
-    TRACE("  (" << alpha << "," << beta << ") " << m_moveList << "* ");
-    TRACE(best_val << std::endl);
-
-    if (best_val >= beta)
-        return best_val;
-
-    if (best_val > alpha)
-        alpha = best_val;
-
-    CMoveList moves;
-    m_board.find_legal_moves(moves);
-
-    // Search killer move first
-    unsigned int j=0;
-    if (m_killerMove.Valid())
-    {
-        for (unsigned int i=0; i<moves.size(); ++i)
-        {
-            if (moves[i] == m_killerMove && moves[i].is_it_a_capture())
-            {
-                CMove tmpMove = moves[i];
-                moves[i] = moves[j];
-                moves[j] = tmpMove;
-
-                TRACE("Killer move reordering! Play " << tmpMove
-                        << " first" << std::endl);
-                j++;
-            }
-        }
-    } // end of if lastMove.Valid()
-
-    // Search recaptures to same square first.
-    CMove lastMove = m_moveList.last();
-    if (lastMove.Valid())
-    {
-        for (unsigned int i=j; i<moves.size(); ++i)
-        {
-            if (moves[i].To() == lastMove.To())
-            {
-                CMove tmpMove = moves[i];
-                moves[i] = moves[j];
-                moves[j] = tmpMove;
-
-                TRACE("Recapture move reordering! Play " << tmpMove
-                        << " first" << std::endl);
-                j++;
-            }
-        }
-    } // end of if lastMove.Valid()
-
-    // Search piece captures first.
-    for (unsigned int i=j; i<moves.size(); ++i)
-    {
-        if (moves[i].GetCaptured() != WP && 
-                moves[i].GetCaptured() != BP && 
-                moves[i].GetCaptured() != EM)
-        {
-            CMove tmpMove = moves[i];
-            moves[i] = moves[j];
-            moves[j] = tmpMove;
-
-            TRACE("Piece capture move reordering! Play " << tmpMove
-                    << " first" << std::endl);
-            j++;
-        }
-    }
-
-    for (unsigned int i=0; i<moves.size(); ++i)
-    {
-        CMove move = moves[i];
-
-        if (!move.is_it_a_capture())
-            continue; // Skip non-captures
-
-        // Do a recursive search
-        m_moveList.push_back(move);
-        m_hashEntry.update(m_board, move);
-        m_board.make_move(move);
-
-        CMoveList pv_temp;
-        int val = -quiescence(-beta, -alpha, pv_temp);
-
-        m_board.undo_move(move);
-        m_hashEntry.update(m_board, move);
-        m_moveList.pop_back();
-
-        if (val > best_val)
-        {
-            // This is the best move so far.
-            best_val = val;
-
-            pv = move;
-            pv += pv_temp;
-        }
-
-        // Update lower bound
-        if (val > alpha)
-        {
-            alpha = val;
-        }
-
-        // Stop if window is closed.
-        if (alpha >= beta)
-        {
-            break; // fail-soft
-        }
-    } // end of for
-
-    return best_val;
-} // end of quiescence
-
-int AI::quiescence_reverse(int alpha, int beta, CMoveList& pv)
-{
-    pv.clear();
-
-    // Check for illegal position (side NOT to move is in check).
-    // In other words, the side to move can capture the opponents position.
-    // This is an illegal position but corresponds to an immediate win.
-    // Return a large positive value.
-    if (m_board.isOtherKingInCheck())
-    {
-        TRACE("Q : -9000" << std::endl);
-        return -9000;
-    }
-
-    m_nodes++;
-
-    int worst_val = m_board.get_value();
-
-    TRACE("  (" << alpha << "," << beta << ") " << m_moveList << "* ");
-    TRACE(worst_val << std::endl);
-
-    if (worst_val <= beta)
-        return worst_val;
-
-    if (worst_val < alpha)
-        alpha = worst_val;
-
-    CMoveList moves;
-    m_board.find_legal_moves(moves);
-
-    // Search killer move first
-    unsigned int j=0;
-    if (m_killerMove.Valid())
-    {
-        for (unsigned int i=0; i<moves.size(); ++i)
-        {
-            if (moves[i] == m_killerMove && moves[i].is_it_a_capture())
-            {
-                CMove tmpMove = moves[i];
-                moves[i] = moves[j];
-                moves[j] = tmpMove;
-
-                TRACE("Killer move reordering! Play " << tmpMove
-                        << " first" << std::endl);
-                j++;
-            }
-        }
-    } // end of if lastMove.Valid()
-
-    // Search recaptures to same square first.
-    CMove lastMove = m_moveList.last();
-    if (lastMove.Valid())
-    {
-        for (unsigned int i=j; i<moves.size(); ++i)
-        {
-            if (moves[i].To() == lastMove.To())
-            {
-                CMove tmpMove = moves[i];
-                moves[i] = moves[j];
-                moves[j] = tmpMove;
-
-                TRACE("Recapture move reordering! Play " << tmpMove
-                        << " first" << std::endl);
-                j++;
-            }
-        }
-    } // end of if lastMove.Valid()
-
-    // Search piece captures first.
-    for (unsigned int i=j; i<moves.size(); ++i)
-    {
-        if (moves[i].GetCaptured() != WP && 
-                moves[i].GetCaptured() != BP && 
-                moves[i].GetCaptured() != EM)
-        {
-            CMove tmpMove = moves[i];
-            moves[i] = moves[j];
-            moves[j] = tmpMove;
-
-            TRACE("Piece capture move reordering! Play " << tmpMove
-                    << " first" << std::endl);
-            j++;
-        }
-    }
-
-    for (unsigned int i=0; i<moves.size(); ++i)
-    {
-        CMove move = moves[i];
-
-        if (!move.is_it_a_capture())
-            continue; // Skip non-captures
-
-        // Do a recursive search
-        m_moveList.push_back(move);
-        m_hashEntry.update(m_board, move);
-        m_board.make_move(move);
-
-        CMoveList pv_temp;
-        int val = -quiescence_reverse(-beta, -alpha, pv_temp);
-
-        m_board.undo_move(move);
-        m_hashEntry.update(m_board, move);
-        m_moveList.pop_back();
-
-        if (val < worst_val)
-        {
-            // This is the best move so far.
-            worst_val = val;
-
-            pv = move;
-            pv += pv_temp;
-        }
-
-        // Update lower bound
-        if (val < alpha)
-        {
-            alpha = val;
-        }
-
-        // Stop if window is closed.
-        if (alpha <= beta)
-        {
-            break; // fail-soft
-        }
-    } // end of for
-
-    return worst_val;
-} // end of quiescence
-
-/***************************************************************
- * find_best_move
+ * find_best_or_worst_move
  *
  * This is the main AI.
- * It returns what it considers to be the best legal move in the
- * current position.
+ * It returns what it considers to be the best (or worst) legal 
+ * move in the current position.
  ***************************************************************/
 CMove AI::find_best_or_worst_move(bool bestMove)
 {
@@ -832,11 +543,11 @@ CMove AI::find_best_or_worst_move(bool bestMove)
 
                     CTimeDiff timeDiff(timeStart);
 
-                    unsigned long millisecs = timeDiff.millisecs();
+                    // unsigned long millisecs = timeDiff.millisecs();
 
-                    unsigned long nps = 0;
-                    if (millisecs)
-                        nps = (m_nodes*1000)/millisecs;
+                    // unsigned long nps = 0;
+                    // if (millisecs)
+                    //     nps = (m_nodes*1000)/millisecs;
 
                     // std::cout << "info depth " << level << " score cp " << best_val;
                     // std::cout << " time " << millisecs << " nodes " << m_nodes << " nps " << nps;
@@ -861,11 +572,11 @@ CMove AI::find_best_or_worst_move(bool bestMove)
 
             CTimeDiff timeDiff(timeStart);
 
-            unsigned long millisecs = timeDiff.millisecs();
+            // unsigned long millisecs = timeDiff.millisecs();
 
-            unsigned long nps = 0;
-            if (millisecs)
-                nps = (m_nodes*1000)/millisecs;
+            // unsigned long nps = 0;
+            // if (millisecs)
+            //     nps = (m_nodes*1000)/millisecs;
 
             // std::cout << "info depth " << level << " score cp " << best_val;
             // std::cout << " time " << millisecs << " nodes " << m_nodes << " nps " << nps;
@@ -927,11 +638,11 @@ CMove AI::find_best_or_worst_move(bool bestMove)
 
                     CTimeDiff timeDiff(timeStart);
 
-                    unsigned long millisecs = timeDiff.millisecs();
+                    // unsigned long millisecs = timeDiff.millisecs();
 
-                    unsigned long nps = 0;
-                    if (millisecs)
-                        nps = (m_nodes*1000)/millisecs;
+                    // unsigned long nps = 0;
+                    // if (millisecs)
+                    //     nps = (m_nodes*1000)/millisecs;
 
                     // std::cout << "info depth " << level << " score cp " << worst_val;
                     // std::cout << " time " << millisecs << " nodes " << m_nodes << " nps " << nps;
@@ -956,11 +667,11 @@ CMove AI::find_best_or_worst_move(bool bestMove)
 
             CTimeDiff timeDiff(timeStart);
 
-            unsigned long millisecs = timeDiff.millisecs();
+            // unsigned long millisecs = timeDiff.millisecs();
 
-            unsigned long nps = 0;
-            if (millisecs)
-                nps = (m_nodes*1000)/millisecs;
+            // unsigned long nps = 0;
+            // if (millisecs)
+            //     nps = (m_nodes*1000)/millisecs;
 
             // std::cout << "info depth " << level << " score cp " << worst_val;
             // std::cout << " time " << millisecs << " nodes " << m_nodes << " nps " << nps;

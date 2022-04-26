@@ -69,7 +69,7 @@ class CBoard
         void find_legal_moves(CMoveList &moves) const;
         void make_move(const CMove &move);
         void undo_move(const CMove &move);
-        int  get_value();
+        int  getValue();
         bool IsMoveValid(CMove &move) const;
 #ifdef DEBUG_HASH
         uint32_t calcHash() const;

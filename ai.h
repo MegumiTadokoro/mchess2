@@ -24,8 +24,6 @@ public:
 private:
     int search(int alpha, int beta, int level, CMoveList& pv);
     int search_reverse(int alpha, int beta, int level, CMoveList& pv);
-    int quiescence(int alpha, int beta, CMoveList& pv);
-    int quiescence_reverse(int alpha, int beta, CMoveList& pv);
 
     CBoard&         m_board;
     unsigned long   m_nodes;
