@@ -3,7 +3,6 @@
 #include <time.h>
 
 #include "ai.h"
-#include "trace.h"
 #include "CTime.h"
 
 const int INFTY = 9999;
@@ -33,21 +32,13 @@ int AI::search(int alpha, int beta, int level, CMoveList& pv)
     // In other words, the side to move can capture the opponents position.
     // This is an illegal position but corresponds to an immediate win.
     // Return a large positive value.
-    if (m_board.isOtherKingInCheck())
-    {
-        TRACE("S : " << 9000 + level << std::endl);
-        return 9000 + level;
-    }
-
-    TRACE("(" << alpha << "," << beta << ") " << m_moveList << ": ");
+    if (m_board.isOtherKingInCheck()) return 9000 + level;
 
     // First we check if we are at leaf of tree.
     // If so, do a quiescence search.
     if (level == 0)
     {
         int val = quiescence(alpha, beta, pv);
-
-        TRACE(pv << "->" << val << std::endl);
 
         // If a capture sequence was found, store the first move in the hash table.
         // This is an optimization that improves move ordering.
@@ -73,7 +64,6 @@ int AI::search(int alpha, int beta, int level, CMoveList& pv)
             hashEntry.m_bestMove               = pv[0];
 
             m_hashTable.insert(hashEntry);
-            TRACE("Added quiet hashEntry : " << m_moveList << " " << hashEntry << std::endl);
 
             m_killerMove = pv[0];
         }
@@ -91,7 +81,6 @@ int AI::search(int alpha, int beta, int level, CMoveList& pv)
     CHashEntry hashEntry;
     if (m_hashTable.find(m_hashEntry.m_hashValue, hashEntry))
     {
-        TRACE("Found hashEntry : " << hashEntry);
 
         // Now we examine the search value stored.
         // This value is only to be trusted, if the
@@ -127,8 +116,6 @@ int AI::search(int alpha, int beta, int level, CMoveList& pv)
         } // end of if level
     } // end of m_hashTable.find
 
-    TRACE(std::endl);
-
     // Prepare to search through all legal moves.
     CMoveList moves;
     m_board.find_legal_moves(moves);
@@ -143,8 +130,6 @@ int AI::search(int alpha, int beta, int level, CMoveList& pv)
         {
             if (moves[i] == hashEntry.m_bestMove)
             {
-                TRACE("Hash: Move reordering! Play " << hashEntry.m_bestMove
-                        << " first" << std::endl);
                 moves[i] = moves[0];
                 moves[0] = hashEntry.m_bestMove;
                 break;
@@ -161,9 +146,6 @@ int AI::search(int alpha, int beta, int level, CMoveList& pv)
                 CMove tmpMove = moves[i];
                 moves[i] = moves[j];
                 moves[j] = tmpMove;
-
-                TRACE("Capture: Move reordering! Play " << tmpMove
-                        << " first" << std::endl);
                 j++;
             }
         }
@@ -196,18 +178,8 @@ int AI::search(int alpha, int beta, int level, CMoveList& pv)
 
 #ifdef DEBUG_HASH
         uint32_t newHash = m_board.calcHash();
-        if (oldHash != newHash)
-        {
-            TRACE("Hash failure" << std::endl);
-            TRACE(m_board);
-            exit(-1);
-        }
-        if (hashCopy != m_hashEntry)
-        {
-            TRACE("New hash failure" << std::endl);
-            TRACE(m_board);
-            exit(-1);
-        }
+        if (oldHash != newHash) exit(-1);
+        if (hashCopy != m_hashEntry) exit(-1);
 #endif
 
         if (val > best_val)
@@ -238,11 +210,7 @@ int AI::search(int alpha, int beta, int level, CMoveList& pv)
         if (m_pvSearch)
         {
             CTime now;
-            if (m_timeEnd < now)
-            {
-                TRACE("Out of time. Stopping search." << std::endl);
-                return alpha;
-            }
+            if (m_timeEnd < now) return alpha;
         }
 
     } // end of for
@@ -287,21 +255,13 @@ int AI::search_reverse(int alpha, int beta, int level, CMoveList& pv)
     // In other words, the side to move can capture the opponents position.
     // This is an illegal position but corresponds to an immediate win.
     // Return a large positive value.
-    if (m_board.isOtherKingInCheck())
-    {
-        TRACE("S : " << -9000 - level << std::endl);
-        return -9000 - level;
-    }
-
-    TRACE("(" << alpha << "," << beta << ") " << m_moveList << ": ");
+    if (m_board.isOtherKingInCheck()) return -9000 - level;
 
     // First we check if we are at leaf of tree.
     // If so, do a quiescence search.
     if (level == 0)
     {
         int val = quiescence(alpha, beta, pv);
-
-        TRACE(pv << "->" << val << std::endl);
 
         // If a capture sequence was found, store the first move in the hash table.
         // This is an optimization that improves move ordering.
@@ -327,7 +287,6 @@ int AI::search_reverse(int alpha, int beta, int level, CMoveList& pv)
             hashEntry.m_bestMove               = pv[0];
 
             m_hashTable.insert(hashEntry);
-            TRACE("Added quiet hashEntry : " << m_moveList << " " << hashEntry << std::endl);
 
             m_killerMove = pv[0];
         }
@@ -806,154 +765,6 @@ int AI::quiescence_reverse(int alpha, int beta, CMoveList& pv)
  * It returns what it considers to be the best legal move in the
  * current position.
  ***************************************************************/
-CMove AI::find_best_move(int wTime, int bTime, int movesToGo)
-{
-    m_nodes = 0;
-    m_hashEntry.set(m_board);
-    m_moveList.clear();
-
-    CTime timeStart;
-    m_timeEnd = timeStart;
-    if (wTime && bTime && movesToGo)
-    {
-        if (m_board.whiteToMove())
-            m_timeEnd += wTime / movesToGo;
-        else
-            m_timeEnd += bTime / movesToGo;
-    }
-    else
-    {
-        m_timeEnd += 1000*60*60*24; // 24 hours
-    }
-
-    CMoveList moves;
-    m_board.find_legal_moves(moves);
-
-    CMoveList best_moves;
-
-    int best_val;
-    CMoveList pv;
-    int num_good;
-
-    int level = 0;
-    while (level <= 2)
-    {
-        TRACE("level: " << level << std::endl);
-        TRACE("moves: ");
-        TRACE(moves.ToShortString());
-        TRACE(std::endl);
-
-        CMove best_move;
-
-        best_moves.clear();
-        best_val = -INFTY;
-        num_good = 0;
-
-        m_pvSearch = true;
-
-        for (unsigned int i=0; i<moves.size(); ++i)
-        {
-            // We are looking for values in the range [best_val, INFTY[, 
-            // which is the same as ]best_val-1, INFTY[
-            int alpha = best_val-1;
-            int beta = INFTY;
-
-            CMove move = moves[i];
-
-            m_moveList.push_back(move);
-            m_hashEntry.update(m_board, move);
-            m_board.make_move(move);
-
-            CMoveList pv_temp;
-            int val = -search(-beta, -alpha, level, pv_temp);
-
-            m_board.undo_move(move);
-            m_hashEntry.update(m_board, move);
-            m_moveList.pop_back();
-
-            TRACE("]" << alpha << ", " << beta << "[ "
-                    << move << " " << pv_temp << " -> " << val);
-
-            if (val > best_val)
-            {
-                num_good = 0;
-            }
-
-            if (val >= best_val)
-            {
-                num_good++;
-
-                pv = move;
-                pv += pv_temp;
-
-                best_val = val;
-                best_move = move;
-
-                CTimeDiff timeDiff(timeStart);
-
-                unsigned long millisecs = timeDiff.millisecs();
-
-                unsigned long nps = 0;
-                if (millisecs)
-                    nps = (m_nodes*1000)/millisecs;
-
-                std::cout << "info depth " << level << " score cp " << best_val;
-                std::cout << " time " << millisecs << " nodes " << m_nodes << " nps " << nps;
-                std::cout << " pv " << pv << std::endl;
-
-                // This is the move reordering. Good moves are searched first on next iteration.
-                best_moves.insert_front(move);
-                TRACE(" front" << std::endl);
-            }
-            else
-            {
-                // This is the move reordering. Bad moves are searched last on next iteration.
-                best_moves.push_back(move);
-                TRACE(" back" << std::endl);
-            }
-
-            m_pvSearch = false;
-
-            CTime now;
-            if (m_timeEnd < now)
-            {
-                TRACE("Out of time. Stopping search." << std::endl);
-                break;
-            }
-        } // end of for
-
-        moves = best_moves;
-
-        CTimeDiff timeDiff(timeStart);
-
-        unsigned long millisecs = timeDiff.millisecs();
-
-        unsigned long nps = 0;
-        if (millisecs)
-            nps = (m_nodes*1000)/millisecs;
-
-        std::cout << "info depth " << level << " score cp " << best_val;
-        std::cout << " time " << millisecs << " nodes " << m_nodes << " nps " << nps;
-        std::cout << " pv " << pv << std::endl;
-
-        CTime now;
-        if (m_timeEnd < now)
-        {
-            TRACE("Out of time. Stopping search." << std::endl);
-            break;
-        }
-
-        level += 2;
-    }
-
-    CMove move = best_moves[rand()%num_good];
-
-    TRACE(num_good << " moves to choose from" << std::endl);
-    TRACE("Playing " << move << std::endl);
-
-    return move;
-} // end of CMove find_best_move(CBoard &board)
-
 CMove AI::find_best_or_worst_move(bool bestMove)
 {
     m_nodes = 0;
@@ -973,15 +784,9 @@ CMove AI::find_best_or_worst_move(bool bestMove)
 
     if(bestMove)
     {
-        //std::cout << "ATTEMP TO FIND BEST MOVE\n";
         int best_val, level = 0;
         while (true)
         {
-            // TRACE("level: " << level << std::endl);
-            // TRACE("moves: ");
-            // TRACE(moves.ToShortString());
-            // TRACE(std::endl);
-
             CMove best_move;
 
             best_moves.clear();
@@ -1009,9 +814,6 @@ CMove AI::find_best_or_worst_move(bool bestMove)
                 m_board.undo_move(move);
                 m_hashEntry.update(m_board, move);
                 m_moveList.pop_back();
-
-                // TRACE("]" << alpha << ", " << beta << "[ "
-                //         << move << " " << pv_temp << " -> " << val);
 
                 if (val > best_val)
                 {
@@ -1042,23 +844,17 @@ CMove AI::find_best_or_worst_move(bool bestMove)
 
                     // This is the move reordering. Good moves are searched first on next iteration.
                     best_moves.insert_front(move);
-                    // TRACE(" front" << std::endl);
                 }
                 else
                 {
                     // This is the move reordering. Bad moves are searched last on next iteration.
                     best_moves.push_back(move);
-                    // TRACE(" back" << std::endl);
                 }
 
                 m_pvSearch = false;
                 
                 CTime now;
-                if (m_timeEnd < now)
-                {
-                    // TRACE("Out of time. Stopping search." << std::endl);
-                    break;
-                }
+                if (m_timeEnd < now) break;
             } // end of for
 
             moves = best_moves;
@@ -1076,12 +872,7 @@ CMove AI::find_best_or_worst_move(bool bestMove)
             // std::cout << " pv " << pv << std::endl;
 
             CTime now;
-            if (m_timeEnd < now)
-            {
-                // TRACE("Out of time. Stopping search." << std::endl);
-                break;
-            }
-
+            if (m_timeEnd < now) break;
             level += 2;
         }
     }
@@ -1091,11 +882,6 @@ CMove AI::find_best_or_worst_move(bool bestMove)
         int worst_val, level = 0;
         while (true)
         {
-            // TRACE("level: " << level << std::endl);
-            // TRACE("moves: ");
-            // TRACE(moves.ToShortString());
-            // TRACE(std::endl);
-
             CMove best_move;
 
             best_moves.clear();
@@ -1123,9 +909,6 @@ CMove AI::find_best_or_worst_move(bool bestMove)
                 m_board.undo_move(move);
                 m_hashEntry.update(m_board, move);
                 m_moveList.pop_back();
-
-                // TRACE("]" << alpha << ", " << beta << "[ "
-                //         << move << " " << pv_temp << " -> " << val);
 
                 if (val < worst_val)
                 {
@@ -1156,23 +939,17 @@ CMove AI::find_best_or_worst_move(bool bestMove)
 
                     // This is the move reordering. Good moves are searched first on next iteration.
                     best_moves.insert_front(move);
-                    // TRACE(" front" << std::endl);
                 }
                 else
                 {
                     // This is the move reordering. Bad moves are searched last on next iteration.
                     best_moves.push_back(move);
-                    // TRACE(" back" << std::endl);
                 }
 
                 m_pvSearch = false;
 
                 CTime now;
-                if (m_timeEnd < now)
-                {
-                    // TRACE("Out of time. Stopping search." << std::endl);
-                    break;
-                }
+                if (m_timeEnd < now) break;
             } // end of for
 
             moves = best_moves;
@@ -1190,21 +967,12 @@ CMove AI::find_best_or_worst_move(bool bestMove)
             // std::cout << " pv " << pv << std::endl;
 
             CTime now;
-            if (m_timeEnd < now)
-            {
-                // TRACE("Out of time. Stopping search." << std::endl);
-                break;
-            }
-
+            if (m_timeEnd < now) break;
             level += 2;
         }
     }
 
     CMove move;
     if(num_good) move = best_moves[rng()%num_good];
-
-    // TRACE(num_good << " moves to choose from" << std::endl);
-    // TRACE("Playing " << move << std::endl);
-
     return move;
 } // end of CMove find_best_or_worst_move(CBoard &board)

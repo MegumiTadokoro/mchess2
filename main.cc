@@ -7,19 +7,8 @@
 #include <algorithm>
 
 #include "CBoard.h"
-#include "CPerft.h"
-#include "CPerftSuite.h"
-#include "CSearchSuite.h"
 #include "ai.h"
-#include "trace.h"
 #include "parallel_for.h"
-
-#ifdef ENABLE_TRACE
-std::ostream *gpTrace = 0;
-#endif
-
-#define PARALLEL_FOR_BEGIN(nb_elements) parallel_for(nb_elements, [&](int start, int end){ for(int i = start; i < end; ++i)
-#define PARALLEL_FOR_END()})
 
 // Experiment script
 

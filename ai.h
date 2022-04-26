@@ -19,7 +19,6 @@ public:
             m_moveList.clear();
         }
 
-    CMove find_best_move(int wTime = 0, int bTime = 0, int movesToGo = 0);
     CMove find_best_or_worst_move(bool bestMove = true);
 
 private:
