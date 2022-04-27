@@ -99,6 +99,7 @@ void CBoard::newGame()
       IV, IV, IV, IV, IV, IV, IV, IV, IV, IV} ;
 
     m_board.reserve(120);
+    number_of_pieces = 32;
     for (int i=0; i<120; ++i)
     {
       m_board[i] = initial[i];
@@ -1423,7 +1424,6 @@ bool CBoard::IsMoveValid(CMove &move) const
  ***************************************************************/
 int CBoard::getValue()
 {
-    // TODO
     int pieces[number_of_pieces+1];
     int squares[number_of_pieces+1], cnt = 0;
     memset(pieces, 0, sizeof(pieces));
@@ -1466,15 +1466,15 @@ int CBoard::getValue()
     // std::cerr << '\n';
 
     pieces[number_of_pieces] = 0, squares[number_of_pieces] = 0;
-    for (int i = 0; i < 32; i++)
+    for (int i = 0; i < number_of_pieces; i++)
     {
         if(pieces[i] == 1) std::swap(pieces[i], pieces[0]), std::swap(squares[i], squares[0]);
         else if(pieces[i] == 7) std::swap(pieces[i], pieces[1]), std::swap(squares[i], squares[1]);
     }
 
-    // for (int i = 0; i < 32; i++) std::cerr << pieces[i] << ' ';
+    // for (int i = 0; i < number_of_pieces; i++) std::cerr << pieces[i] << ' ';
     // std::cerr << '\n';
-    // for (int i = 0; i < 32; i++) std::cerr << squares[i] << ' ';
+    // for (int i = 0; i < number_of_pieces; i++) std::cerr << squares[i] << ' ';
     // std::cerr << '\n';
 
     return nnue_evaluate(!whiteToMove(), pieces, squares);
