@@ -1,8 +1,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <algorithm>
+#include <iostream>
 
 #include "CBoard.h"
+#include "nnue.h"
 
 #ifdef DEBUG_HASH
 #include "crc32.h"
@@ -1145,10 +1148,12 @@ void CBoard::make_move(const CMove &move)
 {
     m_state.push_back((m_enPassantSquare << 8) | m_castleRights);
     m_enPassantSquare = 0;
+    number_of_pieces -= move.is_it_a_capture();
+    // std::cerr << move.ToLongString() << " " << (int) move.GetCaptured() << ' ' << number_of_pieces << '\n';
 
     // 50-move rule
-    if (move.GetCaptured() == EM || move.GetPiece() != BP || move.GetPiece() != WP) last_capture_or_pawn_move++;
-    else last_capture_or_pawn_move = 0;
+    // if (move.GetCaptured() == EM || move.GetPiece() != BP || move.GetPiece() != WP) last_capture_or_pawn_move++;
+    // else last_capture_or_pawn_move = 0;
 
     switch (move.GetCaptured())
     {
@@ -1254,6 +1259,7 @@ void CBoard::make_move(const CMove &move)
             {
                 if (m_board[move.To()] == EM) { // En-passant capture
                     m_board[move.To() - 10] = EM;
+                    number_of_pieces--;
                 }
             }
             break;
@@ -1267,6 +1273,7 @@ void CBoard::make_move(const CMove &move)
             {
                 if (m_board[move.To()] == EM) { // En-passant capture
                     m_board[move.To() + 10] = EM;
+                    number_of_pieces--;
                 }
             }
             break;
@@ -1291,6 +1298,10 @@ void CBoard::make_move(const CMove &move)
 void CBoard::undo_move(const CMove &move)
 {
     m_material = -m_material;
+    number_of_pieces += move.is_it_a_capture();
+    // std::cerr << move.ToLongString() << " " << (int) move.GetCaptured() << ' ' << number_of_pieces << '\n';
+    //if (move.GetCaptured() == EM || move.GetPiece() != BP || move.GetPiece() != WP) last_capture_or_pawn_move--;
+    
     switch (move.GetCaptured())
     {
         case WP : case BP : m_material -= 1; break;
@@ -1317,7 +1328,8 @@ void CBoard::undo_move(const CMove &move)
             if ((move.To() - move.From())%10 != 0 && move.GetCaptured() == EM)
             {
                 m_enPassantSquare = move.To();
-                m_board[m_enPassantSquare - 10] = BP;
+                m_board[m_enPassantSquare - 10] = BP;    // En passant capture
+                number_of_pieces++;
             }
             break;
 
@@ -1325,7 +1337,8 @@ void CBoard::undo_move(const CMove &move)
             if ((move.From() - move.To())%10 != 0 && move.GetCaptured() == EM)
             {
                 m_enPassantSquare = move.To();
-                m_board[m_enPassantSquare + 10] = WP;
+                m_board[m_enPassantSquare + 10] = WP;    // En passant capture
+                number_of_pieces++;
             }
             break;
 
@@ -1411,7 +1424,60 @@ bool CBoard::IsMoveValid(CMove &move) const
 int CBoard::getValue()
 {
     // TODO
-    return 0;
+    int pieces[number_of_pieces+1];
+    int squares[number_of_pieces+1], cnt = 0;
+    memset(pieces, 0, sizeof(pieces));
+    memset(squares, 0, sizeof(squares));
+    
+    // for (int i = 0; i < 32; i++) std::cerr << pieces[i] << ' ';
+    // std::cerr << '\n';
+    // for (int i = 0; i < 32; i++) std::cerr << squares[i] << ' ';
+    // std::cerr << '\n';
+
+    for (int i = 0; i < 120; i++)
+    {
+        if ((int) m_board[i] != 0 && (int) m_board[i] != IV)
+        {
+            int ind;// = ((int) m_board[i] > 0 ? 7 - (int) m_board[i] : 13 + (int) m_board[i]);
+            if (m_board[i] > 0) ind = 7 - (int) m_board[i];
+            else ind = 13 + (int) m_board[i];
+            pieces[cnt] = ind;
+            // if(cnt < 7) std::cerr << cnt << ' ' << (int) m_board[i] << ' ' << ind << ' ' << pieces[cnt] << '\n';
+            squares[cnt] = (i / 10 - 2)*8 + (i%10) - 1;
+            cnt++;
+        }
+    }
+
+    // if(number_of_pieces != cnt)
+    // {
+    //     std::cerr << number_of_pieces << ' ' << cnt << '\n';
+    //     std::cerr << "ERROR!\n";
+    //     for (int i = 0; i < 32; i++) std::cerr << pieces[i] << ' ';
+    //     std::cerr << '\n';
+    //     for (int i = 11; i >= 0; i--)
+    //     {
+    //         for (int j = 0; j < 10; j++) std::cerr << (int) m_board[10*i + j] << ' ';
+    //         std::cerr << '\n';
+    //     }
+    //     exit(0);
+    // }
+
+    // for (int i = 0; i < 7; i++) std::cerr << pieces[i] << ' ';
+    // std::cerr << '\n';
+
+    pieces[number_of_pieces] = 0, squares[number_of_pieces] = 0;
+    for (int i = 0; i < 32; i++)
+    {
+        if(pieces[i] == 1) std::swap(pieces[i], pieces[0]), std::swap(squares[i], squares[0]);
+        else if(pieces[i] == 7) std::swap(pieces[i], pieces[1]), std::swap(squares[i], squares[1]);
+    }
+
+    // for (int i = 0; i < 32; i++) std::cerr << pieces[i] << ' ';
+    // std::cerr << '\n';
+    // for (int i = 0; i < 32; i++) std::cerr << squares[i] << ' ';
+    // std::cerr << '\n';
+
+    return nnue_evaluate(!whiteToMove(), pieces, squares);
 } // end of int CBoard::getValue()
 
 
@@ -1484,7 +1550,8 @@ uint32_t CBoard::calcHash() const
  ***************************************************************/
 CBoard::CBoard(const CBoard& rhs)
     : m_board(), m_state(), m_side_to_move(), m_castleRights(),
-    m_enPassantSquare(), m_material(), m_halfMoves(), m_fullMoves()
+    m_enPassantSquare(), m_material(), m_halfMoves(), m_fullMoves(),
+    number_of_pieces(32), last_capture_or_pawn_move()
 {
     m_side_to_move    = rhs.m_side_to_move;
     m_castleRights    = rhs.m_castleRights;

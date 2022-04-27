@@ -3,11 +3,10 @@ sources += CBoard.cc
 sources += CMove.cc
 sources += ai.cc
 sources += CMoveList.cc
-sources += CPerft.cc
 sources += CHashEntry.cc
 sources += CHashTable.cc
-sources += CPerftSuite.cc
-sources += CSearchSuite.cc
+sources += nnue.cc
+sources += misc.cc
 
 program = mchess
 

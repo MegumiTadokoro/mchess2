@@ -600,9 +600,10 @@ CMove AI::find_best_or_worst_move(bool bestMove)
             num_good = 0;
 
             m_pvSearch = true;
-
+            // std::cerr << "There are " << moves.size() << "legal moves\n";
             for (unsigned int i=0; i<moves.size(); ++i)
             {
+                // std::cerr << "iterate: " << i << ' ' << moves[i].ToLongString() << '\n';
                 // We are looking for values in the range [-INFTY, worst_val[, 
                 // which is the same as [-INFTY, worst_val+1[
                 int alpha = worst_val+1;
@@ -614,12 +615,16 @@ CMove AI::find_best_or_worst_move(bool bestMove)
                 m_hashEntry.update(m_board, move);
                 m_board.make_move(move);
 
+                // std::cerr << m_board << '\n';
+
                 CMoveList pv_temp;
                 int val = -search_reverse(-beta, -alpha, level, pv_temp);
 
                 m_board.undo_move(move);
                 m_hashEntry.update(m_board, move);
                 m_moveList.pop_back();
+                
+                // std::cerr << m_board << '\n';
 
                 if (val < worst_val)
                 {
@@ -644,9 +649,9 @@ CMove AI::find_best_or_worst_move(bool bestMove)
                     // if (millisecs)
                     //     nps = (m_nodes*1000)/millisecs;
 
-                    // std::cout << "info depth " << level << " score cp " << worst_val;
-                    // std::cout << " time " << millisecs << " nodes " << m_nodes << " nps " << nps;
-                    // std::cout << " pv " << pv << std::endl;
+                    // std::cerr << "info depth " << level << " score cp " << worst_val;
+                    // std::cerr << " time " << millisecs << " nodes " << m_nodes << " nps " << nps;
+                    // std::cerr << " pv " << pv << std::endl;
 
                     // This is the move reordering. Good moves are searched first on next iteration.
                     best_moves.insert_front(move);
@@ -673,9 +678,9 @@ CMove AI::find_best_or_worst_move(bool bestMove)
             // if (millisecs)
             //     nps = (m_nodes*1000)/millisecs;
 
-            // std::cout << "info depth " << level << " score cp " << worst_val;
-            // std::cout << " time " << millisecs << " nodes " << m_nodes << " nps " << nps;
-            // std::cout << " pv " << pv << std::endl;
+            // std::cerr << "info depth " << level << " score cp " << worst_val;
+            // std::cerr << " time " << millisecs << " nodes " << m_nodes << " nps " << nps;
+            // std::cerr << " pv " << pv << std::endl;
 
             CTime now;
             if (m_timeEnd < now) break;

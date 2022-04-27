@@ -56,8 +56,8 @@ class CBoard
 {
     public:
         CBoard() : m_board(), m_state(), m_side_to_move(), m_castleRights(),
-            m_enPassantSquare(), m_material(), m_halfMoves(), m_fullMoves(),
-            last_capture_or_pawn_move()
+            m_enPassantSquare(), m_material(), m_halfMoves(), m_fullMoves(), 
+            number_of_pieces(32), last_capture_or_pawn_move()
             { newGame(); }
 
         // Copy constructor
@@ -100,6 +100,7 @@ class CBoard
         int m_halfMoves;
         int m_fullMoves;
 
+        int number_of_pieces;
         int last_capture_or_pawn_move;
 
 }; // end of class CBoard

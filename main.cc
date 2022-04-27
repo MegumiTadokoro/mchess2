@@ -9,6 +9,7 @@
 #include "CBoard.h"
 #include "ai.h"
 #include "parallel_for.h"
+#include "nnue.h"
 
 // Experiment script
 
@@ -25,6 +26,8 @@ void match(
     std::default_random_engine generator (seed);
     std::uniform_real_distribution<double> distribution(0.0,1.0);
     CBoard board;
+    board.newGame();
+    std::cerr << "Init value:\n" << board.getValue() << '\n';
     AI gm = AI(board), levy = AI(board);
     while (true)
     {
@@ -46,6 +49,7 @@ void match(
             break;
         }
         board.make_move(best_move);
+        std::cerr << best_move.ToLongString() << ' ' << board.getValue() << '\n';
 
         // 50-move rule
         if(board.fiftyMoveDraw())
@@ -59,40 +63,42 @@ void match(
 
 int main()
 {
+    nnue_init("nn-04cf2b4ed1da.nnue");
+
     freopen("result.csv", "w", stdout);
     int n_games = 20, StinkFish[n][3], StockFish[n][3];
     memset(StinkFish, 0, sizeof(StinkFish));
     memset(StockFish, 0, sizeof(StockFish));
     
-    pl::async_par_for(0, n, [&](int i)
-    {
-        pl::async_par_for(0, n_games, [&](int j)
-        {
-            std::cerr << "Against StinkFish " << i << ' ' << j << '\n';
-            match(i, (double) i/(n-1), j&1, StinkFish, false);
-        });
-
-        pl::async_par_for(0, n_games, [&](int j)
-        {
-            std::cerr << "Against StockFish " << i << ' ' << j << '\n';
-            match(i, (double) i/(n-1), j&1, StockFish, true);
-        });
-    });
-
-    // for (int i = 0; i < n; i++)
+    // pl::async_par_for(0, n, [&](int i)
     // {
-    //     double strength = (double) i/(n-1);
-    //     for (int j = 0; j < n_games; j++)
+    //     pl::async_par_for(0, n_games, [&](int j)
     //     {
     //         std::cerr << "Against StinkFish " << i << ' ' << j << '\n';
-    //         match(i, strength, j&1, StinkFish, false, seed);
-    //     }
-    //     for (int j = 0; j < n_games; j++)
+    //         match(i, (double) i/(n-1), j&1, StinkFish, false);
+    //     });
+
+    //     pl::async_par_for(0, n_games, [&](int j)
     //     {
     //         std::cerr << "Against StockFish " << i << ' ' << j << '\n';
-    //         match(i, strength, j&1, StockFish, true, seed);
-    //     }
-    // }
+    //         match(i, (double) i/(n-1), j&1, StockFish, true);
+    //     });
+    // });
+
+    for (int i = 0; i < n; i++)
+    {
+        double strength = (double) i/(n-1);
+        for (int j = 0; j < n_games; j++)
+        {
+            std::cerr << "Against StinkFish " << i << ' ' << j << '\n';
+            match(i, strength, j&1, StinkFish, false);
+        }
+        for (int j = 0; j < n_games; j++)
+        {
+            std::cerr << "Against StockFish " << i << ' ' << j << '\n';
+            match(i, strength, j&1, StockFish, true);
+        }
+    }
 
     for (int i = 0; i < n; i++)
     {
