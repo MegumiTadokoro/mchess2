@@ -1,3 +1,9 @@
+AspiredChef
+======
+
+This is my little chess engine, mostly cloned from @MJoergen's mchess2 engine, replaced the evaluation function with NNUE network, and modified to carry out my experiments.
+To implement: draw by 50-move and draw by repetition.
+
 mchess2
 =======
 
